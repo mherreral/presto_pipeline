@@ -23,7 +23,7 @@ cores = mp.cpu_count() # for creating a pool of n (cores) processes
 
 #For profiling
 import cProfile, pstats, StringIO
-PROFILE = True #Change to False unless you need to find out bottlenecks
+PROFILE = False #Change to False unless you need to find out bottlenecks
 
 
 #Tutorial_Mode = True
@@ -163,10 +163,9 @@ def prepsubband_f(lowDM, dDM, NDMs, Nout, subdownsamp, datdownsamp, dml):
     output = getoutput(prepsubband)
 
     subnames = rootname+"_DM%.2f.sub[0-9]*" % subDM
-    prepsubcmd = "prepsubband -nsub %(Nsub)d -lodm %(lowdm)f -dmstep %(dDM)f -numdms %(NDMs)d -numout %(Nout)d -downsamp %(DownSamp)d -o %(root)s %(subfile)s" % {
-                'Nsub':Nsub, 'lowdm':lodm, 'dDM':dDM, 'NDMs':NDMs, 'Nout':Nout, 'DownSamp':datdownsamp, 'root':rootname, 'subfile':subnames}
+    prepsubcmd = "prepsubband -nsub %(Nsub)d -lodm %(lowdm)f -dmstep %(dDM)f -numdms %(NDMs)d -numout %(Nout)d -downsamp %(DownSamp)d -o %(root)s %(subfile)s" % {'Nsub':Nsub, 'lowdm':lodm, 'dDM':dDM, 'NDMs':NDMs, 'Nout':Nout, 'DownSamp':datdownsamp, 'root':rootname, 'subfile':subnames}
     print prepsubcmd
-    output = ''.join((output, getoutput(prepsubcmd)) # joining both outputs faster than '+='
+    output = ''.join((output, getoutput(prepsubcmd)))     # joining both outputs faster than '+='
     return output
 
 
@@ -236,7 +235,7 @@ def realfft(df):
 def accelsearch(fft_file):
     searchcmd = "accelsearch -zmax %d %s"  % (zmax, fft_file)
     print searchcmd
-    output = getoutput(searchcmd)
+    return getoutput(searchcmd)
                      
                 
 if PROFILE:
@@ -248,7 +247,7 @@ try:
     os.chdir('subbands')
     datfiles = glob.glob("*.dat")
     with open('fft.log', 'wt') as logfile:
-        pool = Pool(min(cores, len(datfiles))
+        pool = mp.Pool(min(cores, len(datfiles)))
         output = pool.map(realfft, datfiles)
         logfile.writelines(output)
         pool.terminate()
@@ -256,15 +255,15 @@ try:
                     
     fftfiles = glob.glob("*.fft")
     with open('accelsearch.log', 'wt') as logfile:
-        pool = Pool(min(cores, len(fftfiles))
+        pool = mp.Pool(min(cores, len(fftfiles)))
         output = pool.map(accelsearch, fftfiles)
         logfile.writelines(output)
         pool.terminate()
         pool.join()
 
     os.chdir(cwd)
-except:
-    print 'failed at fft search.'
+except Exception as e:
+    print 'failed at fft search.', e
     os.chdir(cwd)
     sys.exit(0)
 
@@ -405,7 +404,7 @@ try:
     os.chdir('subbands')
     os.system('ln -s ../%s %s' % (filename, filename))
     with open('folding.log', 'wt') as logfile:
-        pool = Pool(min(cores, len(cands))
+        pool = mp.Pool(min(cores, len(cands)))
         output = pool.map(prepfold, cands)
         logfile.writelines(output)
         pool.terminate()

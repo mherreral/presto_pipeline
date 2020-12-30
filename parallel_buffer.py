@@ -22,7 +22,7 @@ from functools import partial
 
 #For profiling
 import cProfile, pstats, StringIO
-PROFILE = True #Change to False unless you need to find out bottlenecks
+PROFILE = False #Change to False unless you need to find out bottlenecks
 
 
 #Tutorial_Mode = True
@@ -65,12 +65,12 @@ def prepsubband_f(lowDM, dDM, NDMs, Nout, subdownsamp, datdownsamp, dml):
     subnames = rootname+"_DM%.2f.sub[0-9]*" % subDM
     prepsubcmd = "prepsubband -nsub %(Nsub)d -lodm %(lowdm)f -dmstep %(dDM)f -numdms %(NDMs)d -numout %(Nout)d -downsamp %(DownSamp)d -o %(root)s %(subfile)s" % {
                 'Nsub':Nsub, 'lowdm':lodm, 'dDM':dDM, 'NDMs':NDMs, 'Nout':Nout, 'DownSamp':datdownsamp, 'root':rootname, 'subfile':subnames}
-    output = ''.join((output, getoutput(prepsubcmd)) # joining both outputs faster than '+='
-    sdtout = '\n'.join((prepsubband, prepsubcmd))
+    output = ''.join((output, getoutput(prepsubcmd))) # joining both outputs faster than '+='
+    stdout = ''.join((prepsubband, '\n', prepsubcmd, '\n'))
     return output, stdout 
 
 
-def realfft(df):
+def realfft(df): 
     fftcmd = "realfft %s" % df
     stdout = "%s\n" % fftcmd
     return getoutput(fftcmd), stdout
@@ -164,13 +164,6 @@ def prepfold(cand):
                 'Nint':Nint, 'Nsub':Nsub, 'dm':cand.DM,  'period':cand.p, 'filfile':filename, 'outfile':rootname+'_DM'+cand.DMstr} #full plots
     stdout = "%s\n" % foldcmd
     return getoutput(foldcmd), stdout
-    
-
-#===========================================
-#Multiprocessing Pool definition
-#Made this way to have only one pool along the entire script
-cores = mp.cpu_count()
-pool = mp.Pool(cores)
                      
 
 print '''
@@ -267,6 +260,20 @@ if PROFILE:
     ps.print_stats()
     print s.getvalue()
 
+
+
+#===========================================
+#Changing to 'subbands' where the results are saved
+cwd = os.getcwd()
+if not os.access('subbands', os.F_OK):
+    os.mkdir('subbands')
+os.chdir('subbands')
+
+#Multiprocessing Pool definition
+#Made this way to have only one pool along the entire script
+cores = mp.cpu_count()
+pool = mp.Pool(cores)
+
     
 print '''
 
@@ -278,13 +285,7 @@ if PROFILE:
     pr = cProfile.Profile()
     pr.enable()
 
-                     
-cwd = os.getcwd()
 try:
-    if not os.access('subbands', os.F_OK):
-        os.mkdir('subbands')
-    os.chdir('subbands')
-    
     logfile = open('dedisperse.log', 'wt')
     for line in ddplan:
         ddpl = line.split()
@@ -310,10 +311,9 @@ try:
         
     os.system('rm *.sub*')
     logfile.close()
-    os.chdir(cwd)
 
-except:
-    print 'failed at prepsubband.'
+except Exception as e:
+    print 'failed at prepsubband.', e
     os.chdir(cwd)
     sys.exit(0)
 
@@ -339,7 +339,6 @@ if PROFILE:
 
 
 try:
-    os.chdir('subbands')
     datfiles = glob.glob("*.dat")
     with open('fft.log', 'wt') as logfile:
         result = pool.map(realfft, datfiles)
@@ -353,13 +352,10 @@ try:
         output, stdout = zip(*result)
         logfile.writelines(output)
         sys.stdout.writelines(stdout)
-
-    os.chdir(cwd)
-except:
-    print 'failed at fft search.'
+except Exception as e:
+    print 'failed at fft search.', e
     os.chdir(cwd)
     sys.exit(0)
-
 
 if PROFILE:
     pr.disable()
@@ -380,10 +376,7 @@ if PROFILE:
     pr.enable()
     
 
-cwd = os.getcwd()
-os.chdir('subbands')
 cands = ACCEL_sift(zmax)
-os.chdir(cwd)
 
 
 if PROFILE:
@@ -406,8 +399,6 @@ if PROFILE:
     
 
 try:
-    cwd = os.getcwd()
-    os.chdir('subbands')
     os.system('ln -s ../%s %s' % (filename, filename))
     with open('folding.log', 'wt') as logfile:
         result = pool.map(prepfold, cands)
@@ -415,11 +406,14 @@ try:
         logfile.writelines(output)
         sys.stdout.writelines(stdout)
     
-    os.chdir(cwd)
 except:
     print 'failed at folding candidates.'
     os.chdir(cwd)
     sys.exit(0)
+
+#===========================
+#Since we moved to 'subbands', let's come back
+os.chdir(cwd)
 
 
 if PROFILE:

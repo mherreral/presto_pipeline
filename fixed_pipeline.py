@@ -18,7 +18,7 @@ from operator import attrgetter
 
 #For profiling
 import cProfile, pstats, StringIO
-PROFILE = True #Change to False unless you need to find out bottlenecks
+PROFILE = False #Change to False unless you need to find out bottlenecks
 
 
 #Tutorial_Mode = True
