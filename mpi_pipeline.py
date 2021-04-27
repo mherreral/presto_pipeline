@@ -55,13 +55,6 @@ else:
 
 
 #=====FUNCTION DEFINITIONS=====
-def getchunksize(iterable, nprocs):
-    """
-    Gets the segment size for each list passed to map
-    """
-    length = len(iterable)
-    return 1 if  length <= nprocs else round(length/nprocs)
-
 
 def query(question, answer, input_type):
     print "Based on output of the last step, answer the following questions:"
@@ -291,7 +284,6 @@ if __name__ == "__main__":
 
     #MPI Pool definition
     executor = MPIPoolExecutor(wdir=working_dir)
-    nprocs = comm.Get_size()
 
     #Multiprocessing Pool definition
     #Made this way to have only one pool along the entire script
@@ -327,8 +319,7 @@ if __name__ == "__main__":
             if DownSamp < 2: subdownsamp = datdownsamp = 1
             
             function = partial(prepsubband_f, lowDM, dDM, NDMs, Nout, subdownsamp, datdownsamp) # for passing several params to Executor.map
-            chunksize = getchunksize(dmlist, nprocs)
-            result = executor.map(function, dmlist, chunksize=chunksize)
+            result = executor.map(function, dmlist)
             output, stdout = zip(*result)
             logfile.writelines(output)
             sys.stdout.writelines(stdout)
@@ -358,14 +349,14 @@ if __name__ == "__main__":
     '''                     
 
     try:
+
         if PROFILE:
             pr = cProfile.Profile()
             pr.enable()
-        
+
         datfiles = glob.glob("*.dat")
         with open('fft.log', 'wt') as logfile:
-            chunksize = getchunksize(datfiles, nprocs)
-            result = executor.map(realfft, datfiles, chunksize=chunksize)
+            result = executor.map(realfft, datfiles)
             output, stdout = zip(*result)
             logfile.writelines(output)
             sys.stdout.writelines(stdout)
@@ -378,14 +369,15 @@ if __name__ == "__main__":
             ps.print_stats()
             print s.getvalue()
         
+
         if PROFILE:
             pr = cProfile.Profile()
             pr.enable()
+
                         
         fftfiles = glob.glob("*.fft")
         with open('accelsearch.log', 'wt') as logfile:
-            chunksize = getchunksize(fftfiles, nprocs)
-            result = executor.map(accelsearch, fftfiles, chunksize=chunksize)
+            result = executor.map(accelsearch, fftfiles)
             output, stdout = zip(*result)
             logfile.writelines(output)
             sys.stdout.writelines(stdout)
@@ -397,10 +389,13 @@ if __name__ == "__main__":
             ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
             ps.print_stats()
             print s.getvalue()
+                        
+
     except Exception as e:
         print 'failed at fft search.', e
         os.chdir(cwd)
-        sys.exit(0)     
+        sys.exit(0)
+
 
     print '''
 
@@ -437,8 +432,7 @@ if __name__ == "__main__":
     try:
         os.system('ln -s ../%s %s' % (filename, filename))
         with open('folding.log', 'wt') as logfile:
-            chunksize = getchunksize(cands, nprocs)
-            result = executor.map(prepfold, cands, chunksize=chunksize)
+            result = executor.map(prepfold, cands)
             output, stdout = zip(*result)
             logfile.writelines(output)
             sys.stdout.writelines(stdout)
