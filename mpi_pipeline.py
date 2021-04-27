@@ -282,13 +282,10 @@ if __name__ == "__main__":
         os.mkdir(working_dir)
     os.chdir(working_dir)
 
-    #MPI Pool definition
-    executor = MPIPoolExecutor(wdir=working_dir)
-
     #Multiprocessing Pool definition
     #Made this way to have only one pool along the entire script
-    #cores = mp.cpu_count()
-    #pool = mp.Pool(cores)
+    cores = mp.cpu_count()
+    pool = mp.Pool(cores)
         
     print '''
 
@@ -319,7 +316,7 @@ if __name__ == "__main__":
             if DownSamp < 2: subdownsamp = datdownsamp = 1
             
             function = partial(prepsubband_f, lowDM, dDM, NDMs, Nout, subdownsamp, datdownsamp) # for passing several params to Executor.map
-            result = executor.map(function, dmlist)
+            result = pool.map(function, dmlist)
             output, stdout = zip(*result)
             logfile.writelines(output)
             sys.stdout.writelines(stdout)
@@ -356,7 +353,7 @@ if __name__ == "__main__":
 
         datfiles = glob.glob("*.dat")
         with open('fft.log', 'wt') as logfile:
-            result = executor.map(realfft, datfiles)
+            result = pool.map(realfft, datfiles)
             output, stdout = zip(*result)
             logfile.writelines(output)
             sys.stdout.writelines(stdout)
@@ -377,7 +374,7 @@ if __name__ == "__main__":
                         
         fftfiles = glob.glob("*.fft")
         with open('accelsearch.log', 'wt') as logfile:
-            result = executor.map(accelsearch, fftfiles)
+            result = pool.map(accelsearch, fftfiles)
             output, stdout = zip(*result)
             logfile.writelines(output)
             sys.stdout.writelines(stdout)
@@ -429,7 +426,14 @@ if __name__ == "__main__":
         pr.enable()
         
 
+    #===========================
+    #Since we moved to 'subbands', let's come back
+    os.chdir(cwd)
+    pool.close()
+
     try:
+        #MPI Pool definition
+        executor = MPIPoolExecutor(wdir=working_dir)
         os.system('ln -s ../%s %s' % (filename, filename))
         with open('folding.log', 'wt') as logfile:
             result = executor.map(prepfold, cands)
@@ -437,16 +441,14 @@ if __name__ == "__main__":
             logfile.writelines(output)
             sys.stdout.writelines(stdout)
         
+        #Close MPI processes and do not wait till it is done
+        executor.shutdown(wait = False)
+        
     except:
         print 'failed at folding candidates.'
         os.chdir(cwd)
         sys.exit(0)
 
-    #===========================
-    #Since we moved to 'subbands', let's come back
-    os.chdir(cwd)
-    #Close MPI processes and do not wait till it is done
-    executor.shutdown(wait = False)
 
     if PROFILE:
         pr.disable()
