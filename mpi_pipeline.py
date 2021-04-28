@@ -36,24 +36,7 @@ Nsub = 32 #32 subbands
 Nint = 64 #64 sub integration
 Tres = 0.5 #ms
 zmax = 0
-
-
-#Getting MPI process ID (rank) to set args since MPI launches manager and workers differently:
-# PARAMS:
-#     from main:  ['<script>.py', '[ARGS]']
-#     from worker:  ['/root/anaconda3/envs/mpipy2/lib/python2.7/site-packages/mpi4py/futures/__main__.py', '<script>.py', '[ARGS]']
-
-comm = MPI.COMM_WORLD
-rank = comm.Get_rank()
-argv = sys.argv[1:] if rank != 0 else sys.argv
-
-filename = argv[1]
-if len(argv) > 2:
-    maskfile = argv[2]
-else:
-    maskfile = None
-
-
+    
 #=====FUNCTION DEFINITIONS=====
 
 def query(question, answer, input_type):
@@ -65,7 +48,7 @@ def query(question, answer, input_type):
     if Ntry == 0:print "The correct answer is:", answer
 
     
-def prepsubband_f(lowDM, dDM, NDMs, Nout, subdownsamp, datdownsamp, dml):
+def prepsubband_f(lowDM, dDM, NDMs, Nout, subdownsamp, datdownsamp, filename, maskfile, dml):
     lodm = dml[0]
     subDM = np.mean(dml)
     if maskfile:
@@ -171,7 +154,7 @@ def ACCEL_sift(zmax):
     return cands
 
 
-def prepfold(cand):
+def prepfold(filename, cand):
     foldcmd = "prepfold -n %(Nint)d -nsub %(Nsub)d -dm %(dm)f -p %(period)f %(filfile)s -o %(outfile)s -noxwin -nodmsearch" % {
                 'Nint':Nint, 'Nsub':Nsub, 'dm':cand.DM,  'period':cand.p, 'filfile':filename, 'outfile':rootname+'_DM'+cand.DMstr} #full plots
     stdout = "%s\n" % foldcmd
@@ -179,6 +162,14 @@ def prepfold(cand):
                      
 
 if __name__ == "__main__":
+
+    filename = sys.argv[1]
+    if len(sys.argv) > 2:
+        maskfile = sys.argv[2]
+    else:
+        maskfile = None
+
+    
     print '''
 
     ====================Read Header======================
@@ -315,7 +306,7 @@ if __name__ == "__main__":
             datdownsamp = 2
             if DownSamp < 2: subdownsamp = datdownsamp = 1
             
-            function = partial(prepsubband_f, lowDM, dDM, NDMs, Nout, subdownsamp, datdownsamp) # for passing several params to Executor.map
+            function = partial(prepsubband_f, lowDM, dDM, NDMs, Nout, subdownsamp, datdownsamp, filename, maskfile) # for passing several params to Executor.map
             result = pool.map(function, dmlist)
             output, stdout = zip(*result)
             logfile.writelines(output)
@@ -433,10 +424,13 @@ if __name__ == "__main__":
 
     try:
         #MPI Pool definition
-        executor = MPIPoolExecutor(wdir=working_dir)
+        comm = MPI.COMM_WORLD
+        nprocs = comm.Get_attr(MPI.UNIVERSE_SIZE)
+        executor = MPIPoolExecutor(max_workers=nprocs, wdir=working_dir)
         os.system('ln -s ../%s %s' % (filename, filename))
         with open('folding.log', 'wt') as logfile:
-            result = executor.map(prepfold, cands)
+            function = partial(prepfold, filename)
+            result = executor.map(function, cands)
             output, stdout = zip(*result)
             logfile.writelines(output)
             sys.stdout.writelines(stdout)
