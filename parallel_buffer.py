@@ -22,7 +22,7 @@ from functools import partial
 
 #For profiling
 import cProfile, pstats, StringIO
-PROFILE = True #Change to False unless you need to find out bottlenecks
+PROFILE = False #Change to False unless you need to find out bottlenecks
 
 
 #Tutorial_Mode = True
@@ -333,51 +333,51 @@ print '''
 
 '''                     
 
-try:
+#try:
 
-    if PROFILE:
-        pr = cProfile.Profile()
-        pr.enable()
+if PROFILE:
+    pr = cProfile.Profile()
+    pr.enable()
 
-    datfiles = glob.glob("*.dat")
-    with open('fft.log', 'wt') as logfile:
-        result = pool.map(realfft, datfiles)
-        output, stdout = zip(*result)
-        logfile.writelines(output)
-        sys.stdout.writelines(stdout)
+datfiles = glob.glob("*.dat")
+with open('fft.log', 'wt') as logfile:
+    result = pool.map(realfft, datfiles)
+    output, stdout = zip(*result)
+    logfile.writelines(output)
+    sys.stdout.writelines(stdout)
 
-    if PROFILE:
-        pr.disable()
-        s = StringIO.StringIO()
-        sortby = 'cumulative'
-        ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
-        ps.print_stats()
-        print s.getvalue()
+if PROFILE:
+    pr.disable()
+    s = StringIO.StringIO()
+    sortby = 'cumulative'
+    ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
+    ps.print_stats()
+    print s.getvalue()
 
-        
-    if PROFILE:
-        pr = cProfile.Profile()
-        pr.enable()
-                    
-    fftfiles = glob.glob("*.fft")
-    with open('accelsearch.log', 'wt') as logfile:
-        result = pool.map(accelsearch, fftfiles)
-        output, stdout = zip(*result)
-        logfile.writelines(output)
-        sys.stdout.writelines(stdout)
+    
+if PROFILE:
+    pr = cProfile.Profile()
+    pr.enable()
+                
+fftfiles = glob.glob("*.fft")
+with open('accelsearch.log', 'wt') as logfile:
+    result = pool.map(accelsearch, fftfiles)
+    output, stdout = zip(*result)
+    logfile.writelines(output)
+    sys.stdout.writelines(stdout)
 
-    if PROFILE:
-        pr.disable()
-        s = StringIO.StringIO()
-        sortby = 'cumulative'
-        ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
-        ps.print_stats()
-        print s.getvalue()
+if PROFILE:
+    pr.disable()
+    s = StringIO.StringIO()
+    sortby = 'cumulative'
+    ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
+    ps.print_stats()
+    print s.getvalue()
 
-except Exception as e:
-    print 'failed at fft search.', e
-    os.chdir(cwd)
-    sys.exit(0)
+#except Exception as e:
+#    print 'failed at fft search.', e
+#    os.chdir(cwd)
+#    sys.exit(0)
 
 
 print '''
