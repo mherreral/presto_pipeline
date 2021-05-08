@@ -418,8 +418,7 @@ if __name__ == "__main__":
         
 
     #===========================
-    #Since we moved to 'subbands', let's come back
-    os.chdir(cwd)
+    #Close processes before spawning the MPI ones
     pool.close()
 
     try:
@@ -442,6 +441,9 @@ if __name__ == "__main__":
         print 'failed at folding candidates.'
         os.chdir(cwd)
         sys.exit(0)
+        
+    #Since we moved to result dir "working_dir"
+    os.chdir(cwd)
 
 
     if PROFILE:
